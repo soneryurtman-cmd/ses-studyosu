@@ -22,18 +22,18 @@ type ScenePreset = {
 
 const SCENE_PRESETS: ScenePreset[] = [
   {
-    id: "salon",
-    title: "Sıcak Aile Salonu",
-    emoji: "🏡",
-    desc: "Ahşap mobilyalı, sıcak aile salonunda loş sehpa üstünde parlayan masa lambası.",
-    type: "table",
-  },
-  {
     id: "restaurant",
     title: "Deniz Kenarı Otantik Restoran",
     emoji: "🌊",
-    desc: "Deniz kenarında 5 masalı otantik restoranda tavandan hafif ışıkla süzülen avize lamba.",
+    desc: "Deniz kenarında, dalga sesleri ve 5 masalı otantik balık restoranında tavandan süzülen avize lamba.",
     type: "pendant",
+  },
+  {
+    id: "salon",
+    title: "Sıcak Aile Salonu",
+    emoji: "🏡",
+    desc: "Koltuk takımlı, ahşap sehpalı aile salonunda duvara gölgeler saçan masa lambası.",
+    type: "table",
   },
   {
     id: "cafe",
@@ -173,12 +173,13 @@ export default function GourdWorkshopAssistant({
   const [saturate, setSaturate] = useState<number>(130);
   const [lampGlow, setLampGlow] = useState<number>(40);
   const [vignette, setVignette] = useState<number>(30);
+  const [autoEnhancedMsg, setAutoEnhancedMsg] = useState<string>("");
 
   // AI Sahne & Arka Plan Yerleştirici Durumları
-  const [selectedSceneId, setSelectedSceneId] = useState<string>("salon");
+  const [selectedSceneId, setSelectedSceneId] = useState<string>("restaurant");
   const [customScenePrompt, setCustomScenePrompt] = useState<string>("");
-  const [lampPlacement, setLampPlacement] = useState<"table" | "pendant">("table");
-  const [bgRemovalSensitivity, setBgRemovalSensitivity] = useState<number>(40); // %0 - %100 arka plan temizleme
+  const [lampPlacement, setLampPlacement] = useState<"table" | "pendant">("pendant");
+  const [bgRemovalSensitivity, setBgRemovalSensitivity] = useState<number>(40);
   const [compositedImageUrl, setCompositedImageUrl] = useState<string | null>(null);
 
   // Video Oluşturucu Durumları
@@ -206,12 +207,22 @@ export default function GourdWorkshopAssistant({
   const activePhoto = photos.find((p) => p.id === selectedPhotoId) || photos[0];
   const activeScenePreset = SCENE_PRESETS.find((s) => s.id === selectedSceneId) || SCENE_PRESETS[0];
 
-  // Sahne değiştiğinde konum tipini otomatik uyarla
   useEffect(() => {
     if (activeScenePreset) {
       setLampPlacement(activeScenePreset.type === "pendant" ? "pendant" : "table");
     }
   }, [selectedSceneId, activeScenePreset]);
+
+  // Otomatik AI Fotoğraf İyileştirme
+  function handleAutoEnhancePhoto() {
+    setBrightness(130);
+    setContrast(135);
+    setSaturate(145);
+    setLampGlow(50);
+    setVignette(35);
+    setAutoEnhancedMsg("⚡ AI Otomatik Işık & Görsel İyileştirme Uygulandı! (Parlaklık: %130, Kontrast: %135, Boncuk Canlılığı: %145, Işık Halesi: %50)");
+    setTimeout(() => setAutoEnhancedMsg(""), 6000);
+  }
 
   // Fotoğraf Yükleme
   function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -248,7 +259,7 @@ export default function GourdWorkshopAssistant({
     }
   }
 
-  // AI Arka Plan Temizleme & Sahne Dekoru Oluşturma (Canvas Render)
+  // AI Arka Plan Temizleme & Gerçekçi Zengin Sahne Dekoru Çizimi
   function handleRenderAIScene() {
     if (!activePhoto || !activePhoto.imgObj) {
       alert("Lütfen önce bir su kabağı lambası fotoğrafı yükleyin.");
@@ -263,81 +274,204 @@ export default function GourdWorkshopAssistant({
     canvas.width = 1080;
     canvas.height = 1350; // Instagram 4:5 Dikey Görsel Formatı
 
-    // 1. DÜZEN: Senaryoya Göre Zengin Arka Plan Dekorasyon Çizimi
-    ctx.fillStyle = "#090d16";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
+    // 1. ZENGİN VE DETAYLI GERÇEKÇİ SAHNE ÇİZİMİ (Restoran, Deniz, Salon, Kafe vb.)
     if (selectedSceneId === "restaurant") {
-      // Deniz Kenarı Restoran Atmosferi
-      const seaGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
-      seaGrad.addColorStop(0, "#030712");
-      seaGrad.addColorStop(0.4, "#0f172a");
-      seaGrad.addColorStop(0.7, "#1e293b");
-      seaGrad.addColorStop(1, "#090d16");
+      // 🌊 DENİZ KENARI OTANTİK BALIK RESTORANI
+      // A) Gece Gökyüzü & Dolunay
+      const skyGrad = ctx.createLinearGradient(0, 0, 0, canvas.height * 0.45);
+      skyGrad.addColorStop(0, "#020617");
+      skyGrad.addColorStop(0.6, "#0f172a");
+      skyGrad.addColorStop(1, "#1e293b");
+      ctx.fillStyle = skyGrad;
+      ctx.fillRect(0, 0, canvas.width, canvas.height * 0.45);
+
+      // Dolunay
+      ctx.fillStyle = "rgba(254, 243, 199, 0.9)";
+      ctx.beginPath();
+      ctx.arc(canvas.width * 0.8, 140, 45, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Yıldızlar
+      ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+      for (let i = 0; i < 35; i++) {
+        const sx = (i * 37) % canvas.width;
+        const sy = (i * 19) % 250;
+        ctx.fillRect(sx, sy, (i % 3) + 1, (i % 3) + 1);
+      }
+
+      // B) Gece Denizi & Mehtap Yansıması
+      const seaGrad = ctx.createLinearGradient(0, canvas.height * 0.45, 0, canvas.height * 0.7);
+      seaGrad.addColorStop(0, "#0f172a");
+      seaGrad.addColorStop(0.5, "#030712");
+      seaGrad.addColorStop(1, "#0f172a");
       ctx.fillStyle = seaGrad;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillRect(0, canvas.height * 0.45, canvas.width, canvas.height * 0.25);
 
-      // Deniz Dalga & Mehtap Yansıması
-      ctx.fillStyle = "rgba(56, 189, 248, 0.15)";
-      ctx.fillRect(0, canvas.height * 0.45, canvas.width, canvas.height * 0.2);
+      // Deniz Dalgaları & Yansıma
+      ctx.fillStyle = "rgba(56, 189, 248, 0.25)";
+      for (let y = canvas.height * 0.46; y < canvas.height * 0.68; y += 14) {
+        ctx.fillRect(canvas.width * 0.65 - (y % 40), y, 300, 3);
+      }
 
-      // Restoran Ahşap Masaları ve Tavan Kirişleri
+      // C) Restoran Ahşap İskelesi & Zemin
       ctx.fillStyle = "#1c120c";
-      ctx.fillRect(0, 0, canvas.width, 120); // Ahşap tavan kirişi
+      ctx.fillRect(0, canvas.height * 0.68, canvas.width, canvas.height * 0.32);
 
+      // Ahşap Tahta Çizgileri
+      ctx.strokeStyle = "#0d0a07";
+      ctx.lineWidth = 4;
+      for (let x = 0; x < canvas.width; x += 120) {
+        ctx.beginPath();
+        ctx.moveTo(x, canvas.height * 0.68);
+        ctx.lineTo(x - 80, canvas.height);
+        ctx.stroke();
+      }
+
+      // D) 5 Adet Masalı Restoran Düzeni (Sıralı Beyaz Örtülü Masalar & Mumlar)
+      const tablePositions = [100, 280, 800, 960]; // Yan masalar
+      tablePositions.forEach((tx) => {
+        // Masa bacağı
+        ctx.fillStyle = "#0f0b07";
+        ctx.fillRect(tx + 30, canvas.height * 0.76, 20, 90);
+
+        // Örtülü Masa
+        ctx.fillStyle = "#e2e8f0";
+        ctx.fillRect(tx, canvas.height * 0.73, 80, 35);
+
+        // Masa Üstü Mum & Kadeh Light
+        ctx.fillStyle = "rgba(245, 158, 11, 0.8)";
+        ctx.beginPath();
+        ctx.arc(tx + 40, canvas.height * 0.71, 6, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      // E) Restoran Ahşap Tavan Kirişleri & Otantik İp Işıkları
       ctx.fillStyle = "#2e1c14";
-      ctx.fillRect(100, canvas.height * 0.7, 880, canvas.height * 0.3); // Ana ahşap yemek masası
+      ctx.fillRect(0, 0, canvas.width, 100);
+
+      ctx.strokeStyle = "rgba(245, 158, 11, 0.5)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(0, 80);
+      ctx.quadraticCurveTo(canvas.width / 2, 140, canvas.width, 80);
+      ctx.stroke();
+
     } else if (selectedSceneId === "salon") {
-      // Sıcak Aile Salonu Dekorasyonu
+      // 🏡 SICAK AİLE SALONU
+      // A) Salon Duvarı & Sıcak Duvar Kağıdı
       const wallGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
-      wallGrad.addColorStop(0, "#0b0f19");
-      wallGrad.addColorStop(0.6, "#1a2234");
-      wallGrad.addColorStop(1, "#0f172a");
+      wallGrad.addColorStop(0, "#111827");
+      wallGrad.addColorStop(0.6, "#1f2937");
+      wallGrad.addColorStop(1, "#111827");
       ctx.fillStyle = wallGrad;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // Salon Ahşap Sehpa / Konsol
-      ctx.fillStyle = "#331a0e";
-      ctx.fillRect(150, canvas.height * 0.65, 780, canvas.height * 0.35);
+      // B) Salon Penceresi (Gece Gökyüzü Görünümü)
+      ctx.fillStyle = "#030712";
+      ctx.fillRect(canvas.width * 0.68, 120, 260, 380);
+      ctx.strokeStyle = "#374151";
+      ctx.lineWidth = 12;
+      ctx.strokeRect(canvas.width * 0.68, 120, 260, 380);
+
+      // Pencereden Yıldızlar
+      ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+      for (let i = 0; i < 15; i++) {
+        ctx.fillRect(canvas.width * 0.7 + (i * 15) % 220, 140 + (i * 23) % 330, 2, 2);
+      }
+
+      // Salon Tül Perdeleri
+      ctx.fillStyle = "rgba(241, 245, 249, 0.15)";
+      ctx.fillRect(canvas.width * 0.66, 120, 60, 380);
+      ctx.fillRect(canvas.width * 0.88, 120, 60, 380);
+
+      // C) Salon Tablosu / Çerçevesi
+      ctx.fillStyle = "#27170f";
+      ctx.fillRect(120, 150, 200, 150);
+      ctx.strokeStyle = "#d97706";
+      ctx.lineWidth = 6;
+      ctx.strokeRect(120, 150, 200, 150);
+
+      // D) Konforlu Koltuk / Kanepe
+      ctx.fillStyle = "#1e293b";
+      ctx.beginPath();
+      ctx.roundRect(80, canvas.height * 0.52, 450, 180, [30, 30, 0, 0]);
+      ctx.fill();
+
+      // Koltuk Yastıkları
+      ctx.fillStyle = "#b45309";
+      ctx.roundRect(110, canvas.height * 0.55, 100, 90, [15]);
+      ctx.fill();
+
+      // E) Salon Cilalı Ahşap Sehpa & Halı
+      ctx.fillStyle = "#0f172a";
+      ctx.fillRect(100, canvas.height * 0.78, 880, canvas.height * 0.22); // Halı
+
+      ctx.fillStyle = "#3a2012";
+      ctx.fillRect(150, canvas.height * 0.68, 780, canvas.height * 0.12); // Ahşap Sehpa
+      ctx.fillStyle = "#1c1008";
+      ctx.fillRect(180, canvas.height * 0.8, 40, 120); // Bacaklar
+      ctx.fillRect(860, canvas.height * 0.8, 40, 120);
+
     } else if (selectedSceneId === "cafe") {
-      // Otantik Kafe & Taş Duvar Şark Köşesi
-      ctx.fillStyle = "#17120e";
+      // ☕ OTANTİK KAFE & TAŞ DUVAR ŞARK KÖŞESİ
+      ctx.fillStyle = "#130d0a";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // Taş Duvar Dokusu Çizimi
-      ctx.fillStyle = "rgba(217, 119, 6, 0.08)";
-      for (let y = 50; y < canvas.height * 0.6; y += 80) {
-        for (let x = 30; x < canvas.width; x += 160) {
-          ctx.fillRect(x, y, 140, 60);
+      // Taş Duvar Desenleri
+      ctx.strokeStyle = "rgba(180, 83, 9, 0.15)";
+      ctx.lineWidth = 3;
+      for (let y = 60; y < canvas.height * 0.65; y += 70) {
+        for (let x = 20; x < canvas.width; x += 150) {
+          const shift = (Math.floor(y / 70) % 2) * 75;
+          ctx.strokeRect(x + shift, y, 140, 60);
         }
       }
 
-      ctx.fillStyle = "#27170f";
-      ctx.fillRect(80, canvas.height * 0.6, 920, canvas.height * 0.4);
-    } else {
-      // Varsayılan Mistik / Veranda Arka Planı
-      const bgGrad = ctx.createRadialGradient(
-        canvas.width / 2,
-        canvas.height / 2,
-        100,
-        canvas.width / 2,
-        canvas.height / 2,
-        canvas.width * 0.8
-      );
-      bgGrad.addColorStop(0, "#1e1b4b");
-      bgGrad.addColorStop(0.5, "#0f172a");
-      bgGrad.addColorStop(1, "#020617");
-      ctx.fillStyle = bgGrad;
+      // Şark Köşesi Otantik Minderler & Halı
+      ctx.fillStyle = "#881337";
+      ctx.fillRect(80, canvas.height * 0.58, 920, 80); // Şark köşesi minderi
+
+      ctx.fillStyle = "#2e1208";
+      ctx.fillRect(120, canvas.height * 0.68, 840, canvas.height * 0.32); // Ahşap masa
+
+    } else if (selectedSceneId === "bedroom") {
+      // 🌙 MİSTİK GECE YATAK ODASI
+      ctx.fillStyle = "#090d16";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      ctx.fillStyle = "#22150c";
-      ctx.fillRect(120, canvas.height * 0.68, 840, canvas.height * 0.32);
+      // Yatak Başlığı
+      ctx.fillStyle = "#1e1b4b";
+      ctx.roundRect(80, canvas.height * 0.4, 600, 300, [20, 20, 0, 0]);
+      ctx.fill();
+
+      // Ahşap Komodin
+      ctx.fillStyle = "#2e1a0e";
+      ctx.fillRect(720, canvas.height * 0.62, 280, canvas.height * 0.38);
+
+    } else {
+      // 🌿 YAZ BAHÇESİ & VERANDA
+      const gardenGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+      gardenGrad.addColorStop(0, "#020617");
+      gardenGrad.addColorStop(0.5, "#064e3b");
+      gardenGrad.addColorStop(1, "#022c22");
+      ctx.fillStyle = gardenGrad;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Bahçe Ağaçları / Sarmaşıklar
+      ctx.fillStyle = "rgba(16, 185, 129, 0.15)";
+      ctx.beginPath();
+      ctx.arc(150, 200, 180, 0, Math.PI * 2);
+      ctx.arc(920, 250, 220, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Bahçe Ahşap Masası
+      ctx.fillStyle = "#27170f";
+      ctx.fillRect(120, canvas.height * 0.66, 840, canvas.height * 0.34);
     }
 
-    // 2. DÜZEN: Kullanıcının Lambasını Arka Plandan Ayıklayarak Sahneye Koyma
+    // 2. DÜZEN: Kullanıcının Lambasını Arka Plandan Temizleyerek Sahneye Koyma
     const img = activePhoto.imgObj;
 
-    // Geçici Ayıklama Tuvali
     const tempCanvas = document.createElement("canvas");
     tempCanvas.width = img.width;
     tempCanvas.height = img.height;
@@ -348,54 +482,50 @@ export default function GourdWorkshopAssistant({
       const imgData = tempCtx.getImageData(0, 0, img.width, img.height);
       const data = imgData.data;
 
-      // Koyu karanlık dış arka planları şeffaflaştırma (Lamba ışıklı kısmını koru)
-      const thresh = (bgRemovalSensitivity / 100) * 80;
+      const thresh = (bgRemovalSensitivity / 100) * 85;
       for (let i = 0; i < data.length; i += 4) {
         const r = data[i];
         const g = data[i + 1];
         const b = data[i + 2];
         const brightnessVal = (r + g + b) / 3;
 
-        // Çok koyu/siyah arka plan pikselini yumuşakça şeffaflaştır
-        if (brightnessVal < thresh && r < 50 && g < 50 && b < 50) {
+        if (brightnessVal < thresh && r < 55 && g < 55 && b < 55) {
           data[i + 3] = Math.max(0, Math.round((brightnessVal / thresh) * 255));
         }
       }
       tempCtx.putImageData(imgData, 0, 0);
     }
 
-    // 3. DÜZEN: Lambayı Sahneye Doğru Konumlandırma (Masa Üstü veya Tavandan Asılı Avize)
+    // 3. DÜZEN: Lambayı Sahneye Doğru Konumlandırma
     let lampW, lampH, lampX, lampY;
 
     if (lampPlacement === "pendant") {
-      // Tavandan Asılı Avize Lamba Konumu
-      lampH = canvas.height * 0.45;
+      lampH = canvas.height * 0.44;
       lampW = (lampH * img.width) / img.height;
       lampX = (canvas.width - lampW) / 2;
-      lampY = 110; // Tavan kirişinin hemen altı
+      lampY = 110;
 
-      // Avize İpi / Kablosu Çizimi
-      ctx.strokeStyle = "#451a03";
-      ctx.lineWidth = 6;
+      // Avize İpi / Halat Çizimi
+      ctx.strokeStyle = "#78350f";
+      ctx.lineWidth = 7;
       ctx.beginPath();
       ctx.moveTo(canvas.width / 2, 0);
-      ctx.lineTo(canvas.width / 2, lampY + 20);
+      ctx.lineTo(canvas.width / 2, lampY + 30);
       ctx.stroke();
     } else {
-      // Sehpa / Masa Üstü Lamba Konumu
-      lampH = canvas.height * 0.48;
+      lampH = canvas.height * 0.46;
       lampW = (lampH * img.width) / img.height;
       lampX = (canvas.width - lampW) / 2;
-      lampY = canvas.height * 0.65 - lampH + 40; // Masanın üstüne basma hizası
+      lampY = canvas.height * 0.66 - lampH + 30;
 
-      // Masa Üstü Lamba Gölgesi
-      ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+      // Masa Üstü Gölge
+      ctx.fillStyle = "rgba(0, 0, 0, 0.65)";
       ctx.beginPath();
       ctx.ellipse(
         canvas.width / 2,
-        canvas.height * 0.65 + 10,
-        lampW * 0.4,
-        20,
+        canvas.height * 0.66 + 10,
+        lampW * 0.42,
+        22,
         0,
         0,
         Math.PI * 2
@@ -409,26 +539,37 @@ export default function GourdWorkshopAssistant({
     ctx.drawImage(tempCanvas, lampX, lampY, lampW, lampH);
     ctx.restore();
 
-    // 4. DÜZEN: Lambadan Odaya & Restorana Yayılan Sıcak Işık Halesi & Gölge Oyunları
+    // 4. DÜZEN: Lambadan Odaya Yayılan Işık Halesi & Duvara Düşen Büyülü Gölge Oyunları
     const centerX = canvas.width / 2;
     const centerY = lampY + lampH / 2;
 
+    // A) Duvara Yansıyan Gölge/Işık Işınları
+    ctx.fillStyle = "rgba(245, 158, 11, 0.12)";
+    for (let i = 0; i < 12; i++) {
+      const angle = (i * Math.PI) / 6;
+      ctx.beginPath();
+      ctx.moveTo(centerX, centerY);
+      ctx.arc(centerX, centerY, canvas.width * 0.8, angle - 0.1, angle + 0.1);
+      ctx.fill();
+    }
+
+    // B) Sıcak Işık Halesi
     const roomGlow = ctx.createRadialGradient(
       centerX,
       centerY,
-      50,
+      40,
       centerX,
       centerY,
       canvas.width * 0.75
     );
-    roomGlow.addColorStop(0, "rgba(245, 158, 11, 0.45)");
-    roomGlow.addColorStop(0.5, "rgba(217, 119, 6, 0.2)");
+    roomGlow.addColorStop(0, "rgba(245, 158, 11, 0.5)");
+    roomGlow.addColorStop(0.5, "rgba(217, 119, 6, 0.22)");
     roomGlow.addColorStop(1, "rgba(0, 0, 0, 0)");
 
     ctx.fillStyle = roomGlow;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Mistik Vignette Katmanı
+    // Vignette Karanlık Katman
     const vigGrad = ctx.createRadialGradient(
       centerX,
       centerY,
@@ -438,11 +579,11 @@ export default function GourdWorkshopAssistant({
       canvas.width * 0.85
     );
     vigGrad.addColorStop(0, "rgba(0,0,0,0)");
-    vigGrad.addColorStop(1, "rgba(2, 6, 23, 0.75)");
+    vigGrad.addColorStop(1, "rgba(2, 6, 23, 0.8)");
     ctx.fillStyle = vigGrad;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Senaryo Yazısı Filigranı
+    // Senaryo Başlığı Filigranı
     const displayTitle = customScenePrompt.trim()
       ? customScenePrompt.trim()
       : activeScenePreset.title;
@@ -460,7 +601,6 @@ export default function GourdWorkshopAssistant({
       canvas.height - 35
     );
 
-    // Çıktı URL'i Oluştur
     const dataUrl = canvas.toDataURL("image/jpeg", 0.92);
     setCompositedImageUrl(dataUrl);
   }
@@ -482,7 +622,6 @@ export default function GourdWorkshopAssistant({
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    // 9:16 Dikey Instagram Reels / Shorts Boyutu (720x1280)
     canvas.width = 720;
     canvas.height = 1280;
 
@@ -852,7 +991,6 @@ export default function GourdWorkshopAssistant({
                 </h4>
 
                 <div className="relative rounded-2xl overflow-hidden border border-slate-800 bg-slate-950 flex flex-col items-center justify-center min-h-[420px] p-2">
-                  {/* Gizli Render Tuvali */}
                   <canvas ref={sceneCanvasRef} className="hidden" />
 
                   {compositedImageUrl ? (
@@ -901,17 +1039,33 @@ export default function GourdWorkshopAssistant({
               </p>
             </div>
 
-            <label className="cursor-pointer rounded-xl bg-orange-600/30 border border-orange-500/50 px-4 py-2.5 text-xs font-bold text-orange-200 hover:bg-orange-600/50 transition flex items-center justify-center gap-2 shrink-0">
-              <span>🖼️</span> Lamba Fotoğrafları Yükle
-              <input
-                type="file"
-                accept="image/*"
-                multiple
-                className="hidden"
-                onChange={handlePhotoUpload}
-              />
-            </label>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleAutoEnhancePhoto}
+                className="rounded-xl bg-amber-600/30 border border-amber-500/50 px-3.5 py-2.5 text-xs font-bold text-amber-200 hover:bg-amber-600/50 transition flex items-center gap-1.5 shadow"
+              >
+                <span>⚡</span> Otomatik AI Işık & Görsel İyileştir
+              </button>
+
+              <label className="cursor-pointer rounded-xl bg-orange-600/30 border border-orange-500/50 px-4 py-2.5 text-xs font-bold text-orange-200 hover:bg-orange-600/50 transition flex items-center justify-center gap-2 shrink-0">
+                <span>🖼️</span> Lamba Fotoğrafları Yükle
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={handlePhotoUpload}
+                />
+              </label>
+            </div>
           </div>
+
+          {autoEnhancedMsg && (
+            <p className="text-xs font-semibold text-emerald-300 bg-emerald-950/40 p-2.5 rounded-xl border border-emerald-900/30 animate-pulse">
+              {autoEnhancedMsg}
+            </p>
+          )}
 
           {photos.length === 0 ? (
             <div className="rounded-xl border border-dashed border-slate-800 p-8 text-center space-y-2">
