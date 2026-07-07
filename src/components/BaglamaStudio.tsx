@@ -5,9 +5,12 @@ import {
   BaglamaNoteItem,
   getBaglamaFretForNote,
   MAKAM_PRESETS,
+  TURKU_PRESETS,
   MakamGenre,
   generateSampleMelody,
   transposeNote,
+  snapNotesToMakam,
+  noteToFrequency,
   StringName,
 } from "@/lib/baglamaNotes";
 import {
@@ -19,7 +22,7 @@ import {
 export default function BaglamaStudio() {
   // Seçili Müzik Türü / Makam
   const [genre, setGenre] = useState<MakamGenre>("halk");
-  const [transposition, setTransposition] = useState<number>(0); // Yarım ses transpoze
+  const [transposition, setTransposition] = useState<number>(0);
 
   // Notalar Listesi
   const [notes, setNotes] = useState<BaglamaNoteItem[]>([]);
@@ -27,7 +30,7 @@ export default function BaglamaStudio() {
 
   // Oynatma Durumları
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
-  const [playSpeed, setSpeed] = useState<number>(1.0); // 0.5x, 0.75x, 1.0x
+  const [playSpeed, setSpeed] = useState<number>(1.0);
   const [isLooping, setIsLooping] = useState<boolean>(false);
 
   // Ses Yükleme & Analiz Durumu
@@ -42,7 +45,7 @@ export default function BaglamaStudio() {
 
   const playTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Sayfa açıldığında varsayılan örnek melodi yükle
+  // Sayfa açıldığında varsayılan Gönül Dağı türküsünü yükle
   useEffect(() => {
     const sample = generateSampleMelody(genre);
     setNotes(sample);
@@ -64,6 +67,78 @@ export default function BaglamaStudio() {
         };
       })
     );
+  }
+
+  // Notaları Seçili Makam Dizisine Oturt & Gürültüleri Temizle
+  function handleCleanAndSnapToMakam() {
+    if (notes.length === 0) return;
+    const cleaned = snapNotesToMakam(notes, genre);
+    setNotes(cleaned);
+  }
+
+  // Hazır Otantik Türkü Yükleme (Gönül Dağı, Uzun İnce vb.)
+  function handleLoadTurku(presetKey: string) {
+    const preset = TURKU_PRESETS[presetKey];
+    if (!preset) return;
+
+    setGenre(preset.genre);
+    setTransposition(0);
+
+    const newNotes: BaglamaNoteItem[] = preset.notes.map((note, i) => {
+      const fretInfo = getBaglamaFretForNote(note, 3);
+      return {
+        id: `turku_${i}_${Date.now()}`,
+        timeSec: i * 0.8,
+        noteName: note,
+        octave: 3,
+        freqHz: noteToFrequency(note, 3),
+        stringName: fretInfo.stringName,
+        fretNumber: fretInfo.fretNumber,
+        fingerHint: fretInfo.fingerHint,
+        lyricsWord: preset.words[i % preset.words.length],
+      };
+    });
+
+    setNotes(newNotes);
+  }
+
+  // Tekil Nota Değiştirme
+  function handleUpdateNoteName(index: number, newNoteName: string) {
+    const fretInfo = getBaglamaFretForNote(newNoteName, 3);
+    setNotes((prev) =>
+      prev.map((n, i) => {
+        if (i !== index) return n;
+        return {
+          ...n,
+          noteName: newNoteName,
+          freqHz: noteToFrequency(newNoteName, 3),
+          stringName: fretInfo.stringName,
+          fretNumber: fretInfo.fretNumber,
+          fingerHint: fretInfo.fingerHint,
+        };
+      })
+    );
+  }
+
+  // Tekil Nota Silme
+  function handleDeleteNote(index: number) {
+    setNotes((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  // Yeni Nota Ekleme
+  function handleAddNote(noteName: string = "La") {
+    const fretInfo = getBaglamaFretForNote(noteName, 3);
+    const newNote: BaglamaNoteItem = {
+      id: `add_${Date.now()}`,
+      timeSec: notes.length * 0.8,
+      noteName,
+      octave: 3,
+      freqHz: noteToFrequency(noteName, 3),
+      stringName: fretInfo.stringName,
+      fretNumber: fretInfo.fretNumber,
+      fingerHint: fretInfo.fingerHint,
+    };
+    setNotes((prev) => [...prev, newNote]);
   }
 
   // Şarkıyı / Notaları Baştan Sona Bağlama Sesiyle Çal
@@ -93,7 +168,6 @@ export default function BaglamaStudio() {
     setActiveNoteIndex(index);
     const item = notes[index];
 
-    // Bağlama Saz Sesi Sentezle
     playBaglamaPluck(item.freqHz, 1.0 / playSpeed);
 
     const delayMs = (0.8 / playSpeed) * 1000;
@@ -119,7 +193,9 @@ export default function BaglamaStudio() {
       if (extractedNotes.length === 0) {
         alert("Ses dosyasında belirgin bir melodi algılanamadı. Lütfen daha net bir vokal / müzik yükleyin.");
       } else {
-        setNotes(extractedNotes);
+        // Otomatik olarak gürültüleri temizle ve makama oturt
+        const cleaned = snapNotesToMakam(extractedNotes, genre);
+        setNotes(cleaned);
         setTransposition(0);
       }
     } catch {
@@ -172,7 +248,6 @@ export default function BaglamaStudio() {
         const minFreq = detectedFreqs[0];
         const maxFreq = detectedFreqs[detectedFreqs.length - 1];
 
-        // Frekansları notaya çevir
         const lowestMIDI = Math.round(69 + 12 * Math.log2(minFreq / 440));
         const highestMIDI = Math.round(69 + 12 * Math.log2(maxFreq / 440));
 
@@ -183,13 +258,11 @@ export default function BaglamaStudio() {
         setMeasuredLowestNote(lowName);
         setMeasuredHighestNote(highName);
 
-        // Öneri Karar Sesi
         setVoiceAdvice(
           `Ses Aralığınız Algılandı! En Pes: ${lowName}, En Tiz: ${highName}. Bağlama için ideal karar sesiniz: ${lowName} Karar! Notalar ses tonunuza uyarlandı.`
         );
 
-        // Otomatik ideal transpoze uygula
-        const targetShift = (lowestMIDI % 12) - 9; // La karar baz alınarak
+        const targetShift = (lowestMIDI % 12) - 9;
         applyTransposition(targetShift);
       }, 5000);
     } catch {
@@ -198,7 +271,6 @@ export default function BaglamaStudio() {
     }
   }
 
-  // Aktif okunan veya seçili nota
   const activeNote = activeNoteIndex >= 0 ? notes[activeNoteIndex] : notes[0];
   const activeMakamObj = MAKAM_PRESETS[genre];
 
@@ -215,7 +287,7 @@ export default function BaglamaStudio() {
               </span>
             </h2>
             <p className="mt-1 text-sm text-slate-300 leading-relaxed">
-              Nota bilmeden, kendi şarkılarını yükleyerek Kısa Sap Bağlama perdelerine dök! İnteraktif öğretmen ile bağlamanı eline alıp çalarak öğren.
+              Kendi AI / MP3 şarkılarını yükle, gürültüleri temizleyip makama oturt! İnteraktif öğretmen ile bağlamanı eline alıp perdeler üzerinde öğren.
             </p>
           </div>
           <div className="rounded-xl border border-slate-800 bg-slate-950/80 px-4 py-3 text-center">
@@ -223,6 +295,29 @@ export default function BaglamaStudio() {
             <span className="text-sm font-bold text-amber-400">Kara Düzen (Sol-Re-La)</span>
             <span className="block text-[10px] text-slate-500">19 Perde Kısa Sap</span>
           </div>
+        </div>
+      </div>
+
+      {/* Hazır Türkü Notaları Seçici */}
+      <div className="rounded-2xl border border-amber-500/30 bg-slate-950 p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="flex items-center gap-2">
+          <span className="text-lg">🎼</span>
+          <div>
+            <h4 className="text-sm font-bold text-white">Hazır Türkü Notaları Yükle</h4>
+            <p className="text-xs text-slate-400">İkonik eserlerin %100 kusursuz bağlama perdelerini yükleyip dinleyin ve öğrenin.</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          {Object.entries(TURKU_PRESETS).map(([key, preset]) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => handleLoadTurku(key)}
+              className="flex-1 sm:flex-none rounded-xl border border-amber-500/40 bg-amber-600/10 px-3 py-2 text-xs font-bold text-amber-200 hover:bg-amber-600/30 transition text-center"
+            >
+              {preset.name}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -309,10 +404,10 @@ export default function BaglamaStudio() {
         </div>
       </div>
 
-      {/* Şarkı Yükleme & İnteraktif Oynatıcı Kontrolleri */}
+      {/* Şarkı Yükleme, Temizleme & İnteraktif Oynatıcı Kontrolleri */}
       <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 space-y-4 shadow-xl">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-800 pb-4">
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             {!isPlaying ? (
               <button
                 type="button"
@@ -362,16 +457,27 @@ export default function BaglamaStudio() {
             </button>
           </div>
 
-          {/* Şarkı Yükle & Notalara Dök */}
-          <label className="cursor-pointer rounded-xl bg-indigo-600/30 border border-indigo-500/50 px-4 py-3 text-xs font-bold text-indigo-200 hover:bg-indigo-600/50 transition flex items-center justify-center gap-2">
-            <span>🎵</span> Kendi AI / MP3 Şarkını Yükle & Bağlama Notasına Dök
-            <input
-              type="file"
-              accept="audio/*"
-              className="hidden"
-              onChange={handleAudioUpload}
-            />
-          </label>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleCleanAndSnapToMakam}
+              className="rounded-xl bg-emerald-600/30 border border-emerald-500/50 px-3.5 py-3 text-xs font-bold text-emerald-200 hover:bg-emerald-600/50 transition flex items-center gap-1.5"
+              title="Aşırı gürültü sıçramalarını siler ve tüm notaları seçili makama oturtur"
+            >
+              <span>🪄</span> Makama Oturt & Gürültüyü Temizle
+            </button>
+
+            {/* Şarkı Yükle & Notalara Dök */}
+            <label className="cursor-pointer rounded-xl bg-indigo-600/30 border border-indigo-500/50 px-4 py-3 text-xs font-bold text-indigo-200 hover:bg-indigo-600/50 transition flex items-center justify-center gap-2">
+              <span>🎵</span> AI / MP3 Şarkı Yükle
+              <input
+                type="file"
+                accept="audio/*"
+                className="hidden"
+                onChange={handleAudioUpload}
+              />
+            </label>
+          </div>
         </div>
 
         {isTranscribing && (
@@ -416,9 +522,7 @@ export default function BaglamaStudio() {
 
         {/* 19 Perdeli Görsel Bağlama Sapı */}
         <div className="relative min-w-[700px] py-4">
-          {/* Bağlama Sapı Gövde Çerçevesi */}
           <div className="relative h-28 rounded-r-3xl bg-gradient-to-r from-amber-950 via-amber-900 to-amber-950 border-y-4 border-amber-700/80 shadow-2xl flex flex-col justify-around py-2 px-6">
-            {/* 3 Tel Hattı (Üst Tel: Sol, Orta Tel: Re, Alt Tel: La) */}
             {(["Üst Tel (Sol)", "Orta Tel (Re)", "Alt Tel (La)"] as StringName[]).map(
               (stringName, sIdx) => {
                 const isCurrentString = activeNote?.stringName === stringName;
@@ -427,7 +531,6 @@ export default function BaglamaStudio() {
                     <span className="absolute -left-5 text-[9px] font-bold text-amber-200/80 w-12 truncate">
                       {stringName.split(" ")[0]}
                     </span>
-                    {/* Tel Çizgisi */}
                     <div
                       className={`w-full h-1 transition-all ${
                         isCurrentString
@@ -440,7 +543,6 @@ export default function BaglamaStudio() {
               }
             )}
 
-            {/* 19 Perde Çizgileri & Numaraları */}
             <div className="absolute inset-0 flex justify-between px-10 pointer-events-none">
               {Array.from({ length: 19 }).map((_, fIdx) => {
                 const fretNum = fIdx + 1;
@@ -467,15 +569,24 @@ export default function BaglamaStudio() {
         </div>
       </div>
 
-      {/* Şarkı Nota Listesi & Sözleri (Tab Tablosu) */}
+      {/* Şarkı Nota Listesi & Manuel Düzenleme (Tab Tablosu) */}
       <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 space-y-4 shadow-xl">
-        <h3 className="text-sm font-bold text-white flex items-center gap-2">
-          <span>📜</span> Şarkı Bağlama Notası & Parmak Tablosu ({notes.length} Nota)
-        </h3>
+        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+          <h3 className="text-sm font-bold text-white flex items-center gap-2">
+            <span>📜</span> Şarkı Bağlama Notası & Parmak Tablosu ({notes.length} Nota)
+          </h3>
+          <button
+            type="button"
+            onClick={() => handleAddNote("La")}
+            className="rounded-xl bg-slate-800 border border-slate-700 px-3 py-1.5 text-xs font-bold text-indigo-300 hover:bg-slate-700 transition"
+          >
+            ➕ Yeni Nota Ekle
+          </button>
+        </div>
 
         {notes.length === 0 ? (
           <p className="text-xs text-slate-500 text-center py-6">
-            Henüz nota eklenmedi. Yukarıdan bir şarkı yükleyin veya müzik türü seçin.
+            Henüz nota eklenmedi. Yukarıdan hazır türkü yükleyin veya şarkı yükleyin.
           </p>
         ) : (
           <div className="grid gap-2 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 max-h-[380px] overflow-y-auto pr-1">
@@ -484,28 +595,55 @@ export default function BaglamaStudio() {
               return (
                 <div
                   key={item.id}
-                  onClick={() => {
-                    setActiveNoteIndex(idx);
-                    playBaglamaPluck(item.freqHz, 0.8);
-                  }}
-                  className={`cursor-pointer rounded-xl border p-3 transition text-center ${
+                  className={`rounded-xl border p-3 transition text-center relative group ${
                     isActive
                       ? "border-amber-400 bg-amber-500/20 text-white shadow-lg ring-2 ring-amber-400"
                       : "border-slate-800 bg-slate-950 text-slate-300 hover:border-slate-700"
                   }`}
                 >
-                  <span className="text-[10px] font-mono text-slate-500 block">
-                    #{idx + 1} ({item.timeSec}s)
-                  </span>
-                  <span className="text-base font-black text-amber-300 block my-0.5">
-                    {item.noteName}
-                  </span>
-                  <span className="text-[11px] font-semibold text-indigo-300 block">
-                    {item.stringName.split(" ")[0]} - Perde #{item.fretNumber}
-                  </span>
-                  <span className="text-[10px] text-slate-400 block mt-1">
-                    👈 {item.fingerHint}
-                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteNote(idx)}
+                    className="absolute top-1 right-1 text-slate-500 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition text-xs font-bold px-1"
+                    title="Bu notayı sil"
+                  >
+                    ✕
+                  </button>
+
+                  <div
+                    className="cursor-pointer"
+                    onClick={() => {
+                      setActiveNoteIndex(idx);
+                      playBaglamaPluck(item.freqHz, 0.8);
+                    }}
+                  >
+                    <span className="text-[10px] font-mono text-slate-500 block">
+                      #{idx + 1} ({item.timeSec}s)
+                    </span>
+
+                    {/* Nota Değiştirme Açılır Menüsü */}
+                    <select
+                      value={item.noteName}
+                      onChange={(e) => handleUpdateNoteName(idx, e.target.value)}
+                      onClick={(e) => e.stopPropagation()}
+                      className="mt-1 bg-slate-900 border border-amber-500/50 text-amber-300 text-sm font-black rounded px-1.5 py-0.5 text-center cursor-pointer outline-none"
+                    >
+                      {["Do", "Do#", "Re", "Re#", "Mi", "Fa", "Fa#", "Sol", "Sol#", "La", "Si-b2", "Si"].map(
+                        (nn) => (
+                          <option key={nn} value={nn}>
+                            {nn}
+                          </option>
+                        )
+                      )}
+                    </select>
+
+                    <span className="text-[11px] font-semibold text-indigo-300 block mt-1">
+                      {item.stringName.split(" ")[0]} - Perde #{item.fretNumber}
+                    </span>
+                    <span className="text-[10px] text-slate-400 block mt-0.5">
+                      👈 {item.fingerHint}
+                    </span>
+                  </div>
                 </div>
               );
             })}

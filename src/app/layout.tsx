@@ -3,8 +3,8 @@ import type { ReactNode } from "react";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Ses Klonlama Stüdyosu",
-  description: "Yapay zeka ile sesini klonla ve metni kendi sesinle seslendir.",
+  title: "Ses Stüdyosu",
+  description: "Su kabağı lambaları, bağlama müzikleri, doğal AI sesleri ve ses bankası hepsi bir arada.",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

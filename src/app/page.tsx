@@ -68,11 +68,10 @@ export default function Home() {
           🎤
         </div>
         <h1 className="bg-gradient-to-r from-indigo-300 via-white to-fuchsia-300 bg-clip-text text-3xl font-bold text-transparent sm:text-4xl">
-          Ses Klonlama Stüdyosu
+          Ses Stüdyosu
         </h1>
         <p className="mx-auto mt-2 max-w-xl text-sm text-slate-400">
-          Sesini yükle ya da kaydet, yapay zeka ile klonla ve istediğin metni
-          kendi sesinle seslendir.
+          Su kabağı lambaları, bağlama müzikleri, doğal yapay zeka seslendirmeleri ve ses bankası için hepsi bir arada stüdyo.
         </p>
       </header>
 
