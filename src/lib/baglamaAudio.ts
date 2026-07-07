@@ -85,8 +85,7 @@ export function playBaglamaPluck(freqHz: number, durationSec: number = 1.2) {
 }
 
 /**
- * Autocorrelation Pitch Detection Algorithm
- * Mikrofondan veya Ses Dosyasından Pitch (Frekans Hz) Çıkarma
+ * Hızlı ve Optimize Edilmiş Pitch Detection (Yüksek Performanslı Autocorrelation)
  */
 export function autoCorrelate(buf: Float32Array, sampleRate: number): number {
   const SIZE = buf.length;
@@ -99,64 +98,33 @@ export function autoCorrelate(buf: Float32Array, sampleRate: number): number {
   rms = Math.sqrt(rms / SIZE);
 
   // Ses çok kısıksa veya sessizlikse -1 dön
-  if (rms < 0.015) return -1;
+  if (rms < 0.018) return -1;
 
-  let r1 = 0;
-  let r2 = SIZE - 1;
-  const thres = 0.2;
-
-  for (let i = 0; i < SIZE / 2; i++) {
-    if (Math.abs(buf[i]) < thres) {
-      r1 = i;
-      break;
-    }
-  }
-
-  for (let i = 1; i < SIZE / 2; i++) {
-    if (Math.abs(buf[SIZE - i]) < thres) {
-      r2 = SIZE - i;
-      break;
-    }
-  }
-
-  const buf2 = buf.slice(r1, r2);
-  const c = new Float32Array(buf2.length);
-
-  for (let i = 0; i < buf2.length; i++) {
-    for (let j = 0; j < buf2.length - i; j++) {
-      c[i] = c[i] + buf2[j] * buf2[j + i];
-    }
-  }
-
-  let d = 0;
-  while (c[d] > c[d + 1]) d++;
-
+  const HALF = Math.floor(SIZE / 2);
   let maxval = -1;
   let maxpos = -1;
 
-  for (let i = d; i < buf2.length; i++) {
-    if (c[i] > maxval) {
-      maxval = c[i];
-      maxpos = i;
+  // Bağlama Frekans Aralığı: 70Hz - 800Hz
+  const minLag = Math.floor(sampleRate / 800);
+  const maxLag = Math.floor(sampleRate / 70);
+
+  for (let lag = minLag; lag < maxLag; lag += 2) {
+    let sum = 0;
+    for (let i = 0; i < HALF; i += 2) {
+      sum += buf[i] * buf[i + lag];
+    }
+    if (sum > maxval) {
+      maxval = sum;
+      maxpos = lag;
     }
   }
 
-  let T0 = maxpos;
-
-  // İnterpolasyon ile hassas Hz hesabı
-  const x1 = c[T0 - 1];
-  const x2 = c[T0];
-  const x3 = c[T0 + 1];
-  const a = (x1 + x3 - 2 * x2) / 2;
-  const b = (x3 - x1) / 2;
-
-  if (a) T0 = T0 - b / (2 * a);
-
-  return sampleRate / T0;
+  if (maxpos <= 0) return -1;
+  return sampleRate / maxpos;
 }
 
 /**
- * Yüklenen Ses Dosyasını (MP3/WAV) Analiz Edip Bağlama Notalarına Dönüştürme
+ * Yüklenen Ses Dosyasını (MP3/WAV) Hızlı, Dondurmayan Async Analiz ile Bağlama Notalarına Dönüştürme
  */
 export async function transcribeAudioFileToNotes(
   file: File,
@@ -170,7 +138,7 @@ export async function transcribeAudioFileToNotes(
   const sampleRate = audioBuffer.sampleRate;
 
   const windowSize = 2048;
-  const hopSize = 1024; // ~23ms adımlarla analiz
+  const hopSize = 3072; // ~60ms adımlarla son derece hızlı ve akıcı analiz
   const totalSteps = Math.floor((floatData.length - windowSize) / hopSize);
 
   const notesList: BaglamaNoteItem[] = [];
@@ -178,21 +146,24 @@ export async function transcribeAudioFileToNotes(
   let noteStartTime = 0;
 
   for (let i = 0; i < totalSteps; i++) {
-    if (onProgress && i % 20 === 0) {
-      onProgress(Math.round((i / totalSteps) * 100));
+    // Her 30 adımda bir tarayıcı UI arayüzünün nefes almasını ve donmamasını sağla (Async Yielding)
+    if (i % 30 === 0) {
+      if (onProgress) {
+        onProgress(Math.round((i / totalSteps) * 100));
+      }
+      await new Promise((resolve) => setTimeout(resolve, 0));
     }
 
     const offset = i * hopSize;
     const slice = floatData.subarray(offset, offset + windowSize);
     const pitchHz = autoCorrelate(slice, sampleRate);
 
-    // Bağlama frekans aralığı dışındaki aşırı pes/tiz gürültüleri filtrele (70Hz - 800Hz)
     if (pitchHz > 70 && pitchHz < 800) {
       const noteData = frequencyToNote(pitchHz);
       const currentTime = offset / sampleRate;
 
       // Aynı nota devam ediyorsa birleştir, değiştiyse yeni nota ekle
-      if (noteData.noteName !== lastNoteName || currentTime - noteStartTime > 0.4) {
+      if (noteData.noteName !== lastNoteName || currentTime - noteStartTime > 0.35) {
         lastNoteName = noteData.noteName;
         noteStartTime = currentTime;
 
