@@ -1,15 +1,7 @@
-// Kısa Sap Bağlama (Kara Düzen: Alt Tel: La, Orta Tel: Re, Üst Tel: Sol)
-// 19 Perde Haritası ve Makam Tanımları
+// Kısa Sap Bağlama (Kara Düzen: Alt Tel: La3 220Hz, Orta Tel: Re3 146.8Hz, Üst Tel: Sol2 98Hz)
+// 19 Perde Haritası, Otantik Türkü Notaları ve Ritmsel Nota Süreleri
 
 export type StringName = "Alt Tel (La)" | "Orta Tel (Re)" | "Üst Tel (Sol)";
-
-export type BaglamaFret = {
-  fretNumber: number; // 0 = Açık tel, 1..19 = Perde Numarası
-  noteName: string;   // Do, Re, Mi, Fa, Sol, La, Si vb.
-  freqHz: number;     // Frekans (Hz)
-  stringName: StringName;
-  fingerHint: string; // 1. Parmak (İşaret), 2. Parmak (Orta), 3. Parmak (Yüzük), 4. Parmak (Serçe), Baş Parmak
-};
 
 export type BaglamaNoteItem = {
   id: string;
@@ -20,6 +12,7 @@ export type BaglamaNoteItem = {
   stringName: StringName;
   fretNumber: number;
   fingerHint: string;
+  durationBeats: number; // Ritmsel Süre (0.5 = Sekizlik, 1.0 = Dörtlük, 1.5 = Noktalı)
   lyricsWord?: string;
 };
 
@@ -49,7 +42,6 @@ export const MAKAM_PRESETS: Record<
   },
 };
 
-// 12 Nota Frekans Tablosu (A4 = 440 Hz baz alınarak)
 const NOTE_NAMES = [
   "Do",
   "Do#",
@@ -65,69 +57,114 @@ const NOTE_NAMES = [
   "Si",
 ];
 
-// Otantik Türkü Notaları Kütüphanesi
+// Otantik ve Ritmsel Türkü Notaları Kütüphanesi
 export const TURKU_PRESETS: Record<
   string,
-  { name: string; genre: MakamGenre; notes: string[]; words: string[] }
+  {
+    name: string;
+    genre: MakamGenre;
+    items: Array<{ note: string; dur: number; word: string }>;
+  }
 > = {
   gonul_dagi: {
     name: "Gönül Dağı (Neşet Ertaş)",
     genre: "halk",
-    notes: [
-      "La", "Si-b2", "Do", "Re", "Mi", "Mi", "Re", "Do",
-      "Si-b2", "Do", "Re", "Do", "Si-b2", "La", "La", "La"
-    ],
-    words: [
-      "Gönül", "dağı", "yağmur", "yağmur", "boran", "olunca", "akar", "düşer",
-      "gözüm", "yaşı", "sel", "olur", "vov", "vov", "vov", "can"
+    items: [
+      { note: "La", dur: 0.5, word: "Gö" },
+      { note: "Si-b2", dur: 0.5, word: "nül" },
+      { note: "Do", dur: 1.0, word: "da" },
+      { note: "Re", dur: 1.0, word: "ğı" },
+      { note: "Mi", dur: 1.5, word: "yağ" },
+      { note: "Mi", dur: 0.5, word: "mur" },
+      { note: "Re", dur: 0.5, word: "bo" },
+      { note: "Do", dur: 0.5, word: "ran" },
+      { note: "Si-b2", dur: 0.5, word: "o" },
+      { note: "Do", dur: 0.5, word: "lun" },
+      { note: "Re", dur: 1.0, word: "ca" },
+      { note: "Do", dur: 0.5, word: "a" },
+      { note: "Si-b2", dur: 0.5, word: "kar" },
+      { note: "La", dur: 2.0, word: "düşer" },
+      { note: "Si-b2", dur: 0.5, word: "göz" },
+      { note: "Do", dur: 0.5, word: "üm" },
+      { note: "Re", dur: 1.0, word: "ya" },
+      { note: "Do", dur: 0.5, word: "şı" },
+      { note: "Si-b2", dur: 0.5, word: "sel" },
+      { note: "La", dur: 2.0, word: "olur" },
     ],
   },
   uzun_ince: {
     name: "Uzun İnce Bir Yoldayım (Aşık Veysel)",
     genre: "halk",
-    notes: [
-      "Re", "Mi", "Fa", "Sol", "Fa", "Mi", "Re", "Do",
-      "Si-b2", "Do", "Re", "Do", "Si-b2", "La", "La"
-    ],
-    words: [
-      "Uzun", "ince", "bir", "yoldayım", "gidiyorum", "gündüz", "gece", "bilmiyorum",
-      "ne", "haldeyim", "gidiyorum", "gündüz", "gece", "gece", "can"
+    items: [
+      { note: "Re", dur: 0.5, word: "U" },
+      { note: "Mi", dur: 0.5, word: "zun" },
+      { note: "Fa", dur: 1.0, word: "in" },
+      { note: "Sol", dur: 1.0, word: "ce" },
+      { note: "Fa", dur: 0.5, word: "bir" },
+      { note: "Mi", dur: 0.5, word: "yol" },
+      { note: "Re", dur: 1.0, word: "da" },
+      { note: "Do", dur: 1.0, word: "yım" },
+      { note: "Si-b2", dur: 0.5, word: "gi" },
+      { note: "Do", dur: 0.5, word: "di" },
+      { note: "Re", dur: 1.0, word: "yo" },
+      { note: "Do", dur: 0.5, word: "rum" },
+      { note: "Si-b2", dur: 0.5, word: "gün" },
+      { note: "La", dur: 1.5, word: "düz" },
+      { note: "La", dur: 1.5, word: "gece" },
     ],
   },
   mihriban: {
     name: "Mihriban (Musa Eroğlu)",
     genre: "halk",
-    notes: [
-      "La", "Do", "Re", "Mi", "Mi", "Fa", "Mi", "Re",
-      "Do", "Re", "Mi", "Re", "Do", "Si-b2", "La"
-    ],
-    words: [
-      "Sarı", "saçlarını", "deli", "gönlüme", "bağlamışım", "çözülmüyor", "Mihriban", "Mihriban",
-      "Ayrılıktan", "zor", "belleme", "ölümü", "çözülmüyor", "Mihriban", "can"
+    items: [
+      { note: "La", dur: 0.5, word: "Sa" },
+      { note: "Do", dur: 0.5, word: "rı" },
+      { note: "Re", dur: 1.0, word: "saç" },
+      { note: "Mi", dur: 1.0, word: "la" },
+      { note: "Mi", dur: 0.5, word: "rı" },
+      { note: "Fa", dur: 0.5, word: "nı" },
+      { note: "Mi", dur: 1.0, word: "de" },
+      { note: "Re", dur: 1.0, word: "li" },
+      { note: "Do", dur: 0.5, word: "gön" },
+      { note: "Re", dur: 0.5, word: "lü" },
+      { note: "Mi", dur: 1.0, word: "me" },
+      { note: "Re", dur: 0.5, word: "bağ" },
+      { note: "Do", dur: 0.5, word: "la" },
+      { note: "Si-b2", dur: 1.0, word: "mı" },
+      { note: "La", dur: 2.0, word: "şım" },
     ],
   },
   sari_gelin: {
     name: "Sarı Gelin (Halk Müziği)",
     genre: "halk",
-    notes: [
-      "La", "Si-b2", "Do", "Re", "Re", "Do", "Si-b2", "La",
-      "Do", "Re", "Mi", "Re", "Do", "Si-b2", "La"
-    ],
-    words: [
-      "Erzurum", "çarşı", "pazar", "leyley", "sarı", "gelin", "sarı", "gelin",
-      "Seni", "bana", "vermezler", "leyley", "sarı", "gelin", "can"
+    items: [
+      { note: "La", dur: 0.5, word: "Er" },
+      { note: "Si-b2", dur: 0.5, word: "zu" },
+      { note: "Do", dur: 1.0, word: "rum" },
+      { note: "Re", dur: 1.5, word: "çar" },
+      { note: "Re", dur: 0.5, word: "şı" },
+      { note: "Do", dur: 0.5, word: "pa" },
+      { note: "Si-b2", dur: 0.5, word: "zar" },
+      { note: "La", dur: 2.0, word: "ley" },
+      { note: "Do", dur: 0.5, word: "sa" },
+      { note: "Re", dur: 0.5, word: "rı" },
+      { note: "Mi", dur: 1.0, word: "ge" },
+      { note: "Re", dur: 1.0, word: "lin" },
+      { note: "Do", dur: 0.5, word: "sa" },
+      { note: "Si-b2", dur: 0.5, word: "rı" },
+      { note: "La", dur: 2.0, word: "gelin" },
     ],
   },
 };
 
-// Kısa Sap Bağlama Kara Düzen (Alt Tel: La3 ~220Hz, Orta Tel: Re3 ~146.8Hz, Üst Tel: Sol2 ~98Hz)
+// Kısa Sap Bağlama Alt Tel Doğru Nota ve Perde Eşleşmesi
 export function getBaglamaFretForNote(
   noteNameClean: string,
-  octave: number
+  octave: number = 3
 ): { stringName: StringName; fretNumber: number; fingerHint: string } {
   const normNote = noteNameClean.trim();
 
-  // Kısa sap bağlamada en çok kullanılan perdeler (Alt Tel Öncelikli)
+  // Alt Tel (La3 - 220Hz Başlangıçlı):
   const altTelMap: Record<string, { fret: number; finger: string }> = {
     La: { fret: 0, finger: "Açık Tel (Tezene)" },
     "Si-b2": { fret: 1, finger: "1. Parmak (İşaret)" },
@@ -152,7 +189,7 @@ export function getBaglamaFretForNote(
     };
   }
 
-  // Pes notalar için Orta Tel (Re) veya Üst Tel (Sol)
+  // Pes Notalar İçin Orta Tel (Re)
   const ortaTelMap: Record<string, { fret: number; finger: string }> = {
     Re: { fret: 0, finger: "Açık Tel (Tezene)" },
     "Re#": { fret: 1, finger: "1. Parmak (İşaret)" },
@@ -178,7 +215,33 @@ export function getBaglamaFretForNote(
   };
 }
 
-// Hz Frekanstan Nota İsmi ve Oktav Bulma
+// Kısa Sap Bağlama Doğru Melodik Frekans Hesabı (Hz)
+export function noteToFrequency(noteName: string, octave: number = 3): number {
+  const isB2 = noteName.includes("-b2");
+  const clean = noteName.replace("-b2", "").replace("-b", "#");
+  let idx = NOTE_NAMES.indexOf(clean);
+  if (idx === -1) idx = 0;
+
+  // Kısa Sap Bağlama Dizisi:
+  // La3 = 220Hz (MIDI 57)
+  // Si-b2 = 233.08Hz (MIDI 58)
+  // Si3 = 246.94Hz (MIDI 59)
+  // Do4 = 261.63Hz (MIDI 60)
+  // Do#4 = 277.18Hz (MIDI 61)
+  // Re4 = 293.66Hz (MIDI 62)
+  // Mi4 = 329.63Hz (MIDI 64)
+  // Fa4 = 349.23Hz (MIDI 65)
+  // Sol4 = 392.00Hz (MIDI 67)
+
+  let midiNote = 57 + idx - 9; // La3 = 57
+  if (midiNote < 57) midiNote += 12; // Do, Re, Mi, Fa, Sol oktav 4'tedir!
+
+  if (isB2) midiNote = 58; // Si-b2
+
+  return 440 * Math.pow(2, (midiNote - 69) / 12);
+}
+
+// Hz Frekanstan Nota İsmi Bulma
 export function frequencyToNote(freqHz: number): {
   noteName: string;
   octave: number;
@@ -198,16 +261,7 @@ export function frequencyToNote(freqHz: number): {
   };
 }
 
-// Nota İsminden Frekans (Hz) Bulma
-export function noteToFrequency(noteName: string, octave: number = 3): number {
-  const clean = noteName.replace("-b2", "").replace("-b", "#");
-  let idx = NOTE_NAMES.indexOf(clean);
-  if (idx === -1) idx = 0; // Do
-  const midiNote = (octave + 1) * 12 + idx;
-  return 440 * Math.pow(2, (midiNote - 69) / 12);
-}
-
-// Yarım ses Transpoze (Note Transposition)
+// Yarım ses Transpoze
 export function transposeNote(noteName: string, semitones: number): string {
   const isB2 = noteName.includes("-b2");
   const clean = noteName.replace("-b2", "").replace("-b", "#");
@@ -222,7 +276,7 @@ export function transposeNote(noteName: string, semitones: number): string {
   return result;
 }
 
-// Notaları Makam Gamına Oturtma & Rasgele Gürültü Sıçramalarını Temizleme
+// Notaları Makam Gamına Oturtma
 export function snapNotesToMakam(
   notesList: BaglamaNoteItem[],
   genre: MakamGenre
@@ -263,17 +317,14 @@ export function snapNotesToMakam(
   });
 }
 
-// Melodideki Gürültü Sıçramalarını Yumuşatıp Akıcı Müzikal Diziye Dönüştürme (Median & Duration Filtering)
+// Melodideki Parazitleri Filtreleme
 export function smoothAndFilterMelodyNotes(
   notesList: BaglamaNoteItem[],
   genre: MakamGenre
 ): BaglamaNoteItem[] {
   if (notesList.length <= 2) return notesList;
 
-  // 1. Önce makama oturt
   const snapped = snapNotesToMakam(notesList, genre);
-
-  // 2. Ardışık aynı notaları birleştir ve çok kısa süreli parazit sıçramalarını filtresi
   const smoothed: BaglamaNoteItem[] = [];
 
   for (let i = 0; i < snapped.length; i++) {
@@ -285,16 +336,12 @@ export function smoothAndFilterMelodyNotes(
       continue;
     }
 
-    // Eğer aynı notaysa veya ardışık sıçrama çok kısaysa birleştir
     if (current.noteName === prev.noteName) {
-      // Birleştir, ekleme
       continue;
     }
 
-    // 3'lü pencerede tek karelik gürültü sıçraması kontrolü (Sıçrama t1 -> t2 -> t1)
     const next = snapped[i + 1];
     if (next && next.noteName === prev.noteName && current.noteName !== prev.noteName) {
-      // Bu kare tek karelik geçici parazit, atla
       continue;
     }
 
@@ -304,24 +351,23 @@ export function smoothAndFilterMelodyNotes(
   return smoothed;
 }
 
-// Örnek Melodi Jeneratörü
+// Otantik Örnek Melodi Jeneratörü (Gönül Dağı Ritmsel Notaları)
 export function generateSampleMelody(genre: MakamGenre): BaglamaNoteItem[] {
   const preset = TURKU_PRESETS.gonul_dagi;
-  const baseNotes = preset.notes;
-  const sampleWords = preset.words;
 
-  return baseNotes.map((note, i) => {
-    const fretInfo = getBaglamaFretForNote(note, 3);
+  return preset.items.map((item, i) => {
+    const fretInfo = getBaglamaFretForNote(item.note, 3);
     return {
       id: `sample_${i}_${Date.now()}`,
       timeSec: i * 0.8,
-      noteName: note,
+      noteName: item.note,
       octave: 3,
-      freqHz: noteToFrequency(note, 3),
+      freqHz: noteToFrequency(item.note, 3),
       stringName: fretInfo.stringName,
       fretNumber: fretInfo.fretNumber,
       fingerHint: fretInfo.fingerHint,
-      lyricsWord: sampleWords[i % sampleWords.length],
+      durationBeats: item.dur,
+      lyricsWord: item.word,
     };
   });
 }

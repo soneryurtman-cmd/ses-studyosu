@@ -92,18 +92,19 @@ export default function BaglamaStudio() {
     setGenre(preset.genre);
     setTransposition(0);
 
-    const newNotes: BaglamaNoteItem[] = preset.notes.map((note, i) => {
-      const fretInfo = getBaglamaFretForNote(note, 3);
+    const newNotes: BaglamaNoteItem[] = preset.items.map((item, i) => {
+      const fretInfo = getBaglamaFretForNote(item.note, 3);
       return {
         id: `turku_${i}_${Date.now()}`,
         timeSec: i * 0.8,
-        noteName: note,
+        noteName: item.note,
         octave: 3,
-        freqHz: noteToFrequency(note, 3),
+        freqHz: noteToFrequency(item.note, 3),
         stringName: fretInfo.stringName,
         fretNumber: fretInfo.fretNumber,
         fingerHint: fretInfo.fingerHint,
-        lyricsWord: preset.words[i % preset.words.length],
+        durationBeats: item.dur,
+        lyricsWord: item.word,
       };
     });
 
@@ -145,11 +146,12 @@ export default function BaglamaStudio() {
       stringName: fretInfo.stringName,
       fretNumber: fretInfo.fretNumber,
       fingerHint: fretInfo.fingerHint,
+      durationBeats: 1.0,
     };
     setNotes((prev) => [...prev, newNote]);
   }
 
-  // Şarkıyı / Notaları Baştan Sona Bağlama Sesiyle Çal
+  // Şarkıyı / Notaları Baştan Sona Bağlama Sesiyle Çal (Ritmsel Süreli)
   function handleStartPlay() {
     if (notes.length === 0) return;
     setIsPlaying(true);
@@ -175,12 +177,13 @@ export default function BaglamaStudio() {
 
     setActiveNoteIndex(index);
     const item = notes[index];
+    const beatDur = item.durationBeats || 1.0;
 
-    // Hıza göre tezene vuruş tınlamasını ve ritim gecikmesini dinamik hesapla
-    const duration = Math.max(0.2, 0.9 / playSpeed);
+    // Hıza ve ritmsel nota süresine göre tezene vuruş tınlamasını hesapla
+    const duration = Math.max(0.15, (0.8 * beatDur) / playSpeed);
     playBaglamaPluck(item.freqHz, duration);
 
-    const delayMs = Math.max(100, (0.7 / playSpeed) * 1000);
+    const delayMs = Math.max(80, ((0.6 * beatDur) / playSpeed) * 1000);
     playTimerRef.current = setTimeout(() => {
       playStep(index + 1);
     }, delayMs);
@@ -203,7 +206,6 @@ export default function BaglamaStudio() {
       if (extractedNotes.length === 0) {
         alert("Ses dosyasında belirgin bir melodi algılanamadı. Lütfen daha net bir vokal / müzik yükleyin.");
       } else {
-        // Otomatik olarak gürültüleri temizle, yumuşat ve makama oturt
         const smoothed = smoothAndFilterMelodyNotes(extractedNotes, genre);
         setNotes(smoothed);
         setTransposition(0);

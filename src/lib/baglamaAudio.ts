@@ -69,7 +69,6 @@ export function playBaglamaPluck(freqHz: number, durationSec: number = 1.2) {
     osc2.connect(bodyFilter);
     bodyFilter.connect(stringGain);
 
-    // Birleştirme ve Çıkış
     noiseGain.connect(ctx.destination);
     stringGain.connect(ctx.destination);
 
@@ -97,14 +96,12 @@ export function autoCorrelate(buf: Float32Array, sampleRate: number): number {
   }
   rms = Math.sqrt(rms / SIZE);
 
-  // Ses çok kısıksa veya sessizlikse -1 dön
   if (rms < 0.018) return -1;
 
   const HALF = Math.floor(SIZE / 2);
   let maxval = -1;
   let maxpos = -1;
 
-  // Bağlama Frekans Aralığı: 70Hz - 800Hz
   const minLag = Math.floor(sampleRate / 800);
   const maxLag = Math.floor(sampleRate / 70);
 
@@ -146,7 +143,6 @@ export async function transcribeAudioFileToNotes(
   let noteStartTime = 0;
 
   for (let i = 0; i < totalSteps; i++) {
-    // Her 30 adımda bir tarayıcı UI arayüzünün nefes almasını ve donmamasını sağla (Async Yielding)
     if (i % 30 === 0) {
       if (onProgress) {
         onProgress(Math.round((i / totalSteps) * 100));
@@ -162,7 +158,6 @@ export async function transcribeAudioFileToNotes(
       const noteData = frequencyToNote(pitchHz);
       const currentTime = offset / sampleRate;
 
-      // Aynı nota devam ediyorsa birleştir, değiştiyse yeni nota ekle
       if (noteData.noteName !== lastNoteName || currentTime - noteStartTime > 0.35) {
         lastNoteName = noteData.noteName;
         noteStartTime = currentTime;
@@ -178,6 +173,7 @@ export async function transcribeAudioFileToNotes(
           stringName: fretInfo.stringName,
           fretNumber: fretInfo.fretNumber,
           fingerHint: fretInfo.fingerHint,
+          durationBeats: 1.0,
         });
       }
     }
