@@ -230,12 +230,10 @@ export function snapNotesToMakam(
   const scaleNotes = MAKAM_PRESETS[genre].notes;
 
   return notesList.map((item) => {
-    // Eğer nota zaten makam dizisindeyse dokunma
     if (scaleNotes.includes(item.noteName)) {
       return item;
     }
 
-    // Makam dizisindeki en yakın notayı bul
     let bestNote = scaleNotes[0];
     let minDiff = 999;
 
@@ -263,6 +261,47 @@ export function snapNotesToMakam(
       fingerHint: fretInfo.fingerHint,
     };
   });
+}
+
+// Melodideki Gürültü Sıçramalarını Yumuşatıp Akıcı Müzikal Diziye Dönüştürme (Median & Duration Filtering)
+export function smoothAndFilterMelodyNotes(
+  notesList: BaglamaNoteItem[],
+  genre: MakamGenre
+): BaglamaNoteItem[] {
+  if (notesList.length <= 2) return notesList;
+
+  // 1. Önce makama oturt
+  const snapped = snapNotesToMakam(notesList, genre);
+
+  // 2. Ardışık aynı notaları birleştir ve çok kısa süreli parazit sıçramalarını filtresi
+  const smoothed: BaglamaNoteItem[] = [];
+
+  for (let i = 0; i < snapped.length; i++) {
+    const current = snapped[i];
+    const prev = smoothed[smoothed.length - 1];
+
+    if (!prev) {
+      smoothed.push(current);
+      continue;
+    }
+
+    // Eğer aynı notaysa veya ardışık sıçrama çok kısaysa birleştir
+    if (current.noteName === prev.noteName) {
+      // Birleştir, ekleme
+      continue;
+    }
+
+    // 3'lü pencerede tek karelik gürültü sıçraması kontrolü (Sıçrama t1 -> t2 -> t1)
+    const next = snapped[i + 1];
+    if (next && next.noteName === prev.noteName && current.noteName !== prev.noteName) {
+      // Bu kare tek karelik geçici parazit, atla
+      continue;
+    }
+
+    smoothed.push(current);
+  }
+
+  return smoothed;
 }
 
 // Örnek Melodi Jeneratörü

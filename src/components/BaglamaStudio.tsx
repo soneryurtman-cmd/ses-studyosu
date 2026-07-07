@@ -10,6 +10,7 @@ import {
   generateSampleMelody,
   transposeNote,
   snapNotesToMakam,
+  smoothAndFilterMelodyNotes,
   noteToFrequency,
   StringName,
 } from "@/lib/baglamaNotes";
@@ -30,7 +31,7 @@ export default function BaglamaStudio() {
 
   // Oynatma Durumları
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
-  const [playSpeed, setSpeed] = useState<number>(1.0);
+  const [playSpeed, setSpeed] = useState<number>(1.0); // 0.5x, 0.75x, 1.0x, 1.5x, 2.0x, 3.0x
   const [isLooping, setIsLooping] = useState<boolean>(false);
 
   // Ses Yükleme & Analiz Durumu
@@ -74,6 +75,13 @@ export default function BaglamaStudio() {
     if (notes.length === 0) return;
     const cleaned = snapNotesToMakam(notes, genre);
     setNotes(cleaned);
+  }
+
+  // Melodideki Parazitleri Sil & Akıcı Akor Dizisine Dönüştür (Smoother)
+  function handleSmoothMelody() {
+    if (notes.length === 0) return;
+    const smoothed = smoothAndFilterMelodyNotes(notes, genre);
+    setNotes(smoothed);
   }
 
   // Hazır Otantik Türkü Yükleme (Gönül Dağı, Uzun İnce vb.)
@@ -168,9 +176,11 @@ export default function BaglamaStudio() {
     setActiveNoteIndex(index);
     const item = notes[index];
 
-    playBaglamaPluck(item.freqHz, 1.0 / playSpeed);
+    // Hıza göre tezene vuruş tınlamasını ve ritim gecikmesini dinamik hesapla
+    const duration = Math.max(0.2, 0.9 / playSpeed);
+    playBaglamaPluck(item.freqHz, duration);
 
-    const delayMs = (0.8 / playSpeed) * 1000;
+    const delayMs = Math.max(100, (0.7 / playSpeed) * 1000);
     playTimerRef.current = setTimeout(() => {
       playStep(index + 1);
     }, delayMs);
@@ -193,9 +203,9 @@ export default function BaglamaStudio() {
       if (extractedNotes.length === 0) {
         alert("Ses dosyasında belirgin bir melodi algılanamadı. Lütfen daha net bir vokal / müzik yükleyin.");
       } else {
-        // Otomatik olarak gürültüleri temizle ve makama oturt
-        const cleaned = snapNotesToMakam(extractedNotes, genre);
-        setNotes(cleaned);
+        // Otomatik olarak gürültüleri temizle, yumuşat ve makama oturt
+        const smoothed = smoothAndFilterMelodyNotes(extractedNotes, genre);
+        setNotes(smoothed);
         setTransposition(0);
       }
     } catch {
@@ -287,7 +297,7 @@ export default function BaglamaStudio() {
               </span>
             </h2>
             <p className="mt-1 text-sm text-slate-300 leading-relaxed">
-              Kendi AI / MP3 şarkılarını yükle, gürültüleri temizleyip makama oturt! İnteraktif öğretmen ile bağlamanı eline alıp perdeler üzerinde öğren.
+              Kendi AI / MP3 şarkılarını yükle, parazitleri temizleyip akıcı melodilere dök! 0.5x&apos;ten 3.0x&apos;e varan hız seçenekleriyle interaktif öğretmen eşliğinde öğren.
             </p>
           </div>
           <div className="rounded-xl border border-slate-800 bg-slate-950/80 px-4 py-3 text-center">
@@ -307,13 +317,13 @@ export default function BaglamaStudio() {
             <p className="text-xs text-slate-400">İkonik eserlerin %100 kusursuz bağlama perdelerini yükleyip dinleyin ve öğrenin.</p>
           </div>
         </div>
-        <div className="flex items-center gap-2 w-full sm:w-auto">
+        <div className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
           {Object.entries(TURKU_PRESETS).map(([key, preset]) => (
             <button
               key={key}
               type="button"
               onClick={() => handleLoadTurku(key)}
-              className="flex-1 sm:flex-none rounded-xl border border-amber-500/40 bg-amber-600/10 px-3 py-2 text-xs font-bold text-amber-200 hover:bg-amber-600/30 transition text-center"
+              className="flex-1 sm:flex-none rounded-xl border border-amber-500/40 bg-amber-600/10 px-3 py-2 text-xs font-bold text-amber-200 hover:bg-amber-600/30 transition text-center shrink-0"
             >
               {preset.name}
             </button>
@@ -426,20 +436,21 @@ export default function BaglamaStudio() {
               </button>
             )}
 
-            <div className="flex items-center gap-1 bg-slate-950 p-1.5 rounded-xl border border-slate-800">
-              <span className="text-xs font-medium text-slate-400 px-2">Hız:</span>
-              {[0.5, 0.75, 1.0].map((s) => (
+            {/* Genişletilmiş Hız Seçenekleri (0.5x, 0.75x, 1.0x, 1.5x, 2.0x, 3.0x) */}
+            <div className="flex items-center gap-1 bg-slate-950 p-1.5 rounded-xl border border-slate-800 overflow-x-auto">
+              <span className="text-xs font-medium text-slate-400 px-2 shrink-0">Hız:</span>
+              {[0.5, 0.75, 1.0, 1.5, 2.0, 3.0].map((s) => (
                 <button
                   key={s}
                   type="button"
                   onClick={() => setSpeed(s)}
-                  className={`rounded-lg px-2.5 py-1 text-xs font-bold transition ${
+                  className={`rounded-lg px-2 py-1 text-xs font-bold transition shrink-0 ${
                     playSpeed === s
-                      ? "bg-amber-500 text-slate-950"
+                      ? "bg-amber-500 text-slate-950 shadow-md"
                       : "text-slate-400 hover:text-white"
                   }`}
                 >
-                  {s}x {s === 0.5 ? "(Çok Yavaş)" : s === 0.75 ? "(Pratik)" : ""}
+                  {s}x {s === 0.5 ? "(Yavaş)" : s === 3.0 ? "(Seri ⚡)" : ""}
                 </button>
               ))}
             </div>
@@ -457,14 +468,14 @@ export default function BaglamaStudio() {
             </button>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <button
               type="button"
-              onClick={handleCleanAndSnapToMakam}
+              onClick={handleSmoothMelody}
               className="rounded-xl bg-emerald-600/30 border border-emerald-500/50 px-3.5 py-3 text-xs font-bold text-emerald-200 hover:bg-emerald-600/50 transition flex items-center gap-1.5"
-              title="Aşırı gürültü sıçramalarını siler ve tüm notaları seçili makama oturtur"
+              title="Sıçrayan parazitleri temizler ve notaları akıcı bağlama melodisine dönüştürür"
             >
-              <span>🪄</span> Makama Oturt & Gürültüyü Temizle
+              <span>🧹</span> Melodiyi Akıcı Yap & Parazitleri Sil
             </button>
 
             {/* Şarkı Yükle & Notalara Dök */}
