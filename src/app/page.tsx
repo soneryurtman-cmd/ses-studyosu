@@ -9,8 +9,9 @@ import PremadeSpeech from "@/components/PremadeSpeech";
 import VoiceBankStudio from "@/components/VoiceBankStudio";
 import BrowserSpeech from "@/components/BrowserSpeech";
 import BaglamaStudio from "@/components/BaglamaStudio";
+import GourdWorkshopAssistant from "@/components/GourdWorkshopAssistant";
 
-type Tab = "browser" | "baglama" | "premade" | "clone" | "generate" | "bank";
+type Tab = "workshop" | "browser" | "baglama" | "premade" | "clone" | "generate" | "bank";
 
 export default function Home() {
   const router = useRouter();
@@ -77,6 +78,16 @@ export default function Home() {
 
       {/* Sekmeler */}
       <div className="mx-auto mt-8 flex w-fit flex-wrap justify-center gap-1 rounded-full border border-slate-800 bg-slate-900/60 p-1">
+        <button
+          onClick={() => setTab("workshop")}
+          className={`rounded-full px-5 py-2 text-sm font-medium transition ${
+            tab === "workshop"
+              ? "bg-orange-600 text-white shadow-lg font-bold"
+              : "text-slate-400 hover:text-white"
+          }`}
+        >
+          🎬 Lamba Senaryo & Atölye 🎃
+        </button>
         <button
           onClick={() => setTab("baglama")}
           className={`rounded-full px-5 py-2 text-sm font-medium transition ${
@@ -145,7 +156,25 @@ export default function Home() {
       <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_20rem]">
         {/* Ana içerik */}
         <div>
-          {tab === "baglama" ? (
+          {tab === "workshop" ? (
+            <GourdWorkshopAssistant
+              onTransferScriptToSpeech={(scriptText) => {
+                setTab("browser");
+                // LocalStorage veya seslendirme bileşenine metni aktar
+                setTimeout(() => {
+                  const textarea = document.querySelector("textarea");
+                  if (textarea) {
+                    const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+                      window.HTMLTextAreaElement.prototype,
+                      "value"
+                    )?.set;
+                    nativeInputValueSetter?.call(textarea, scriptText);
+                    textarea.dispatchEvent(new Event("input", { bubbles: true }));
+                  }
+                }, 100);
+              }}
+            />
+          ) : tab === "baglama" ? (
             <BaglamaStudio />
           ) : tab === "browser" ? (
             <BrowserSpeech />

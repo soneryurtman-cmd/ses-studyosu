@@ -12,6 +12,7 @@ import {
   snapNotesToMakam,
   smoothAndFilterMelodyNotes,
   noteToFrequency,
+  frequencyToNote,
   StringName,
 } from "@/lib/baglamaNotes";
 import {
@@ -37,6 +38,14 @@ export default function BaglamaStudio() {
   // Ses Yükleme & Analiz Durumu
   const [isTranscribing, setIsTranscribing] = useState<boolean>(false);
   const [transcribeProgress, setTranscribeProgress] = useState<number>(0);
+
+  // Mırıldanarak Melodi Kaydetme (Live Humming / Whistling Pitch Extractor)
+  const [isHumming, setIsHumming] = useState<boolean>(false);
+  const [hummingSeconds, setHummingSeconds] = useState<number>(0);
+  const [hummingStatus, setHummingStatus] = useState<string>("");
+  const humIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const humAudioCtxRef = useRef<AudioContext | null>(null);
+  const humStreamRef = useRef<MediaStream | null>(null);
 
   // Ses Aralığı Tespiti (Mikrofon)
   const [isMeasuringVoice, setIsMeasuringVoice] = useState<boolean>(false);
@@ -151,6 +160,92 @@ export default function BaglamaStudio() {
     setNotes((prev) => [...prev, newNote]);
   }
 
+  // Canlı Melodini Mırıldanarak / Islıkla Kaydet & Notaya Çıkar
+  async function startHummingRecording() {
+    setIsHumming(true);
+    setHummingSeconds(0);
+    setHummingStatus("Mikrofona melodinizi mırıldanın veya ıslık çalın...");
+
+    const humNotes: BaglamaNoteItem[] = [];
+    let lastNote = "";
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      humStreamRef.current = stream;
+
+      const AudioContextClass =
+        window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      const ctx = new AudioContextClass();
+      humAudioCtxRef.current = ctx;
+
+      const source = ctx.createMediaStreamSource(stream);
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 2048;
+      source.connect(analyser);
+
+      const buffer = new Float32Array(analyser.fftSize);
+      let secCounter = 0;
+
+      const timer = setInterval(() => {
+        secCounter += 0.2;
+        setHummingSeconds(Math.round(secCounter));
+
+        analyser.getFloatTimeDomainData(buffer);
+        const pitchHz = autoCorrelate(buffer, ctx.sampleRate);
+
+        if (pitchHz > 80 && pitchHz < 800) {
+          const noteData = frequencyToNote(pitchHz);
+          if (noteData.noteName !== lastNote) {
+            lastNote = noteData.noteName;
+            const fretInfo = getBaglamaFretForNote(noteData.noteName, noteData.octave);
+            humNotes.push({
+              id: `hum_${humNotes.length}_${Date.now()}`,
+              timeSec: Math.round(secCounter * 10) / 10,
+              noteName: noteData.noteName,
+              octave: noteData.octave,
+              freqHz: Math.round(pitchHz),
+              stringName: fretInfo.stringName,
+              fretNumber: fretInfo.fretNumber,
+              fingerHint: fretInfo.fingerHint,
+              durationBeats: 1.0,
+            });
+            setHummingStatus(`Algılanan Nota: ${noteData.noteName} (Perde #${fretInfo.fretNumber})`);
+          }
+        }
+
+        // 10 saniye dolunca otomatik bitir
+        if (secCounter >= 10) {
+          stopHummingRecording(humNotes);
+        }
+      }, 200);
+
+      humIntervalRef.current = timer;
+    } catch {
+      setIsHumming(false);
+      alert("Mikrofona erişilemedi. Lütfen mikrofon izinlerini kontrol edin.");
+    }
+  }
+
+  function stopHummingRecording(collectedNotes?: BaglamaNoteItem[]) {
+    if (humIntervalRef.current) clearInterval(humIntervalRef.current);
+    if (humStreamRef.current) {
+      humStreamRef.current.getTracks().forEach((track) => track.stop());
+    }
+    if (humAudioCtxRef.current) {
+      humAudioCtxRef.current.close();
+    }
+
+    setIsHumming(false);
+
+    if (collectedNotes && collectedNotes.length > 0) {
+      const smoothed = smoothAndFilterMelodyNotes(collectedNotes, genre);
+      setNotes(smoothed);
+      setHummingStatus(`🎉 Mırıldandığınız melodi başarıyla ${smoothed.length} Bağlama notasına dönüştürüldü!`);
+    } else {
+      setHummingStatus("Melodi algılanamadı. Lütfen daha yüksek sesle mırıldanın/ıslık çalın.");
+    }
+  }
+
   // Şarkıyı / Notaları Baştan Sona Bağlama Sesiyle Çal (Ritmsel Süreli)
   function handleStartPlay() {
     if (notes.length === 0) return;
@@ -179,7 +274,6 @@ export default function BaglamaStudio() {
     const item = notes[index];
     const beatDur = item.durationBeats || 1.0;
 
-    // Hıza ve ritmsel nota süresine göre tezene vuruş tınlamasını hesapla
     const duration = Math.max(0.15, (0.8 * beatDur) / playSpeed);
     playBaglamaPluck(item.freqHz, duration);
 
@@ -299,7 +393,7 @@ export default function BaglamaStudio() {
               </span>
             </h2>
             <p className="mt-1 text-sm text-slate-300 leading-relaxed">
-              Kendi AI / MP3 şarkılarını yükle, parazitleri temizleyip akıcı melodilere dök! 0.5x&apos;ten 3.0x&apos;e varan hız seçenekleriyle interaktif öğretmen eşliğinde öğren.
+              Melodini mırıldanıp kaydet veya AI/MP3 şarkı yükle! 0.5x&apos;ten 3.0x&apos;e varan hız seçenekleriyle interaktif öğretmen eşliğinde öğren.
             </p>
           </div>
           <div className="rounded-xl border border-slate-800 bg-slate-950/80 px-4 py-3 text-center">
@@ -310,22 +404,52 @@ export default function BaglamaStudio() {
         </div>
       </div>
 
-      {/* Hazır Türkü Notaları Seçici */}
-      <div className="rounded-2xl border border-amber-500/30 bg-slate-950 p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div className="flex items-center gap-2">
-          <span className="text-lg">🎼</span>
-          <div>
-            <h4 className="text-sm font-bold text-white">Hazır Türkü Notaları Yükle</h4>
-            <p className="text-xs text-slate-400">İkonik eserlerin %100 kusursuz bağlama perdelerini yükleyip dinleyin ve öğrenin.</p>
+      {/* Hazır Türkü Notaları Seçici & Canlı Mırıldanma Butonu */}
+      <div className="rounded-2xl border border-amber-500/30 bg-slate-950 p-5 space-y-4">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <span className="text-xl">🎼</span>
+            <div>
+              <h4 className="text-sm font-bold text-white">Otantik Türkü Notaları & Canlı Mırıldanma</h4>
+              <p className="text-xs text-slate-400">Hazır türkü seçebilir veya mikrofona mırıldanarak kendi melodini jeste dönüştürebilirsin.</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            {!isHumming ? (
+              <button
+                type="button"
+                onClick={startHummingRecording}
+                className="flex-1 sm:flex-none rounded-xl bg-rose-600/30 border border-rose-500/50 px-4 py-2.5 text-xs font-bold text-rose-200 hover:bg-rose-600/50 transition flex items-center justify-center gap-2 shadow-lg"
+              >
+                <span>🎤</span> Melodini Mırıldan / Islıkla Kaydet
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => stopHummingRecording()}
+                className="flex-1 sm:flex-none rounded-xl bg-slate-800 border border-rose-500/60 px-4 py-2.5 text-xs font-bold text-rose-300 animate-pulse transition flex items-center justify-center gap-2"
+              >
+                <span>🔴</span> Mırıldanmayı Bitir ({hummingSeconds}s)
+              </button>
+            )}
           </div>
         </div>
-        <div className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
+
+        {hummingStatus && (
+          <p className="text-xs font-semibold text-amber-300 bg-amber-950/40 p-2.5 rounded-xl border border-amber-900/30">
+            {hummingStatus}
+          </p>
+        )}
+
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 border-t border-slate-800/80 pt-3">
+          <span className="text-xs font-bold text-slate-400 shrink-0">Hazır Eserler:</span>
           {Object.entries(TURKU_PRESETS).map(([key, preset]) => (
             <button
               key={key}
               type="button"
               onClick={() => handleLoadTurku(key)}
-              className="flex-1 sm:flex-none rounded-xl border border-amber-500/40 bg-amber-600/10 px-3 py-2 text-xs font-bold text-amber-200 hover:bg-amber-600/30 transition text-center shrink-0"
+              className="rounded-xl border border-amber-500/40 bg-amber-600/10 px-3 py-1.5 text-xs font-bold text-amber-200 hover:bg-amber-600/30 transition text-center shrink-0"
             >
               {preset.name}
             </button>
@@ -438,7 +562,7 @@ export default function BaglamaStudio() {
               </button>
             )}
 
-            {/* Genişletilmiş Hız Seçenekleri (0.5x, 0.75x, 1.0x, 1.5x, 2.0x, 3.0x) */}
+            {/* Genişletilmiş Hız Seçenekleri */}
             <div className="flex items-center gap-1 bg-slate-950 p-1.5 rounded-xl border border-slate-800 overflow-x-auto">
               <span className="text-xs font-medium text-slate-400 px-2 shrink-0">Hız:</span>
               {[0.5, 0.75, 1.0, 1.5, 2.0, 3.0].map((s) => (
@@ -599,7 +723,7 @@ export default function BaglamaStudio() {
 
         {notes.length === 0 ? (
           <p className="text-xs text-slate-500 text-center py-6">
-            Henüz nota eklenmedi. Yukarıdan hazır türkü yükleyin veya şarkı yükleyin.
+            Henüz nota eklenmedi. Yukarıdan mırıldanarak kaydolun veya şarkı yükleyin.
           </p>
         ) : (
           <div className="grid gap-2 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 max-h-[380px] overflow-y-auto pr-1">
@@ -634,7 +758,6 @@ export default function BaglamaStudio() {
                       #{idx + 1} ({item.timeSec}s)
                     </span>
 
-                    {/* Nota Değiştirme Açılır Menüsü */}
                     <select
                       value={item.noteName}
                       onChange={(e) => handleUpdateNoteName(idx, e.target.value)}
